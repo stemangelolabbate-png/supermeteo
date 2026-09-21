@@ -9,6 +9,7 @@ import { WeatherDetailsGrid } from './components/WeatherDetailsGrid';
 import { ComparisonCard } from './components/ComparisonCard';
 import { Footer } from './components/Footer';
 import { WeatherReport, WeatherSource } from './types';
+import { fetchWeatherWithFallback } from './services/weatherService';
 import {
   AlertCircle,
   MapPin,
@@ -44,7 +45,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch weather data from backend
+  // Fetch weather data with seamless Netlify/static hosting fallback
   const fetchWeather = async (targetCity: string, targetSource: WeatherSource) => {
     setIsLoading(true);
     setError(null);
@@ -53,16 +54,10 @@ export default function App() {
       const clientHour = now.getHours();
       const clientTime = now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
 
-      const res = await fetch(
-        `/api/weather?city=${encodeURIComponent(targetCity)}&source=${targetSource}&clientHour=${clientHour}&clientTime=${encodeURIComponent(clientTime)}`
-      );
-      if (!res.ok) {
-        throw new Error('Impossibile caricare i dati meteorologici.');
-      }
-      const data: WeatherReport = await res.json();
+      const data = await fetchWeatherWithFallback(targetCity, targetSource, clientHour, clientTime);
       setWeatherData(data);
     } catch (err: any) {
-      console.error(err);
+      console.error('Weather load error:', err);
       setError(err?.message || 'Si è verificato un errore.');
     } finally {
       setIsLoading(false);

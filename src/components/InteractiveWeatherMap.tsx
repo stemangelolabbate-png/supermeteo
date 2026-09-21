@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { MapStation, RadarTimestampFrame, WeatherSource } from '../types';
 import { formatTemp } from '../utils/weatherIcons';
+import { getMapStationsWithFallback, getRadarTimestampsWithFallback } from '../services/weatherService';
 
 interface InteractiveWeatherMapProps {
   currentCity: string;
@@ -77,22 +78,20 @@ export const InteractiveWeatherMap: React.FC<InteractiveWeatherMapProps> = ({
     return '#ef4444';
   };
 
-  // Fetch Stations & Radar Data
+  // Fetch Stations & Radar Data (with Netlify/client fallback)
   const fetchData = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const [stationsRes, radarRes] = await Promise.all([
-        fetch('/api/map/stations'),
-        fetch('/api/radar-timestamps'),
+      const [stationData, rData] = await Promise.all([
+        getMapStationsWithFallback(),
+        getRadarTimestampsWithFallback(),
       ]);
 
-      if (stationsRes.ok) {
-        const data: MapStation[] = await stationsRes.json();
-        setStations(data);
+      if (stationData && stationData.length > 0) {
+        setStations(stationData);
       }
 
-      if (radarRes.ok) {
-        const rData = await radarRes.json();
+      if (rData) {
         setRadarHost(rData.host || 'https://tilecache.rainviewer.com');
         const frames: RadarTimestampFrame[] = rData.frames || [];
         setRadarFrames(frames);

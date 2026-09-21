@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, MapPin, Globe, Check, RefreshCw, Layers, Loader2, CheckCircle2, CloudSun, Sparkles } from 'lucide-react';
 import { WeatherSource } from '../types';
+import {
+  searchCitiesWithFallback,
+  reverseGeocodeWithFallback,
+  detectIpLocationWithFallback,
+} from '../services/weatherService';
 
 interface HeaderProps {
   currentCity: string;
@@ -54,22 +59,22 @@ export const Header: React.FC<HeaderProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch suggestions when searching
+  // Fetch suggestions when searching (resilient with Netlify/client fallback)
   useEffect(() => {
     if (searchInput.trim().length === 0) {
       setSuggestions([]);
       return;
     }
-    const timer = setTimeout(() => {
-      fetch(`/api/cities?q=${encodeURIComponent(searchInput)}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (Array.isArray(data)) {
-            setSuggestions(data);
-            setIsDropdownOpen(true);
-          }
-        })
-        .catch(() => {});
+    const timer = setTimeout(async () => {
+      try {
+        const data = await searchCitiesWithFallback(searchInput);
+        if (Array.isArray(data)) {
+          setSuggestions(data);
+          setIsDropdownOpen(true);
+        }
+      } catch (err) {
+        console.warn('Autocomplete lookup error:', err);
+      }
     }, 150);
 
     return () => clearTimeout(timer);
@@ -97,15 +102,12 @@ export const Header: React.FC<HeaderProps> = ({
 
     const fallbackToIp = async () => {
       try {
-        const res = await fetch('/api/geolocation/ip');
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.city) {
-            onSelectCity(data.city);
-            setGeoNotification(`Rilevato: ${data.city} (${data.region || 'Italia'})`);
-            setTimeout(() => setGeoNotification(null), 4500);
-            return;
-          }
+        const data = await detectIpLocationWithFallback();
+        if (data && data.city) {
+          onSelectCity(data.city);
+          setGeoNotification(`Rilevato: ${data.city} (${data.region || 'Italia'})`);
+          setTimeout(() => setGeoNotification(null), 4500);
+          return;
         }
       } catch (err) {
         console.warn('IP location fetch failed:', err);
@@ -119,18 +121,13 @@ export const Header: React.FC<HeaderProps> = ({
         async (position) => {
           try {
             const { latitude, longitude } = position.coords;
-            const res = await fetch(
-              `/api/geolocation/reverse?lat=${latitude}&lon=${longitude}`
-            );
-            if (res.ok) {
-              const data = await res.json();
-              if (data && data.city) {
-                onSelectCity(data.city);
-                setGeoNotification(`Posizione GPS: ${data.city} (${data.region})`);
-                setTimeout(() => setGeoNotification(null), 4500);
-                setIsGeolocating(false);
-                return;
-              }
+            const data = await reverseGeocodeWithFallback(latitude, longitude);
+            if (data && data.city) {
+              onSelectCity(data.city);
+              setGeoNotification(`Posizione GPS: ${data.city} (${data.region})`);
+              setTimeout(() => setGeoNotification(null), 4500);
+              setIsGeolocating(false);
+              return;
             }
           } catch (e) {
             console.warn('Reverse geocode error:', e);
