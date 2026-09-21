@@ -1,0 +1,6 @@
+{
+  "name": "SuperMeteo",
+  "description": "SuperMeteo - Previsioni meteo in tempo reale con dati ufficiali da iLMeteo.it (Modello ECMWF / ZEUS HD), grafici orari e radar interattivo.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
